@@ -120,6 +120,8 @@ class PluginItem:
         if not subSettingWidget is None:
             settingLayout.addWidget(subSettingWidget)
         settingLayout.addStretch()
+        # keep the left panel wide enough, so labels / UUIDs of connection settings are never clipped
+        self.settingWidget.setMinimumWidth(400)
         # widgets main
         self.mainWidget = self.plugin.onWidgetMain(widget)
         # widgets functional
@@ -138,6 +140,7 @@ class PluginItem:
         layout3.addStretch()
         # add to frame
         widget.addWidget(self.settingWidget)
+        widget.setCollapsible(0, False)
         widget.addWidget(self.mainWidget)
         widget.addWidget(self.functionalWidget)
         widget.setStretchFactor(0, 1)

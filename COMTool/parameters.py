@@ -11,6 +11,7 @@ except ImportError:
     from COMTool.logger import Logger
 
 appName = "COMTool"
+appTitle = "COMTool-BLE"   # shown in window title, appName is kept for config dir compatibility
 appIcon = "assets/logo.png"
 appLogo = "assets/logo.png"
 appLogo2 = "assets/logo2.png"

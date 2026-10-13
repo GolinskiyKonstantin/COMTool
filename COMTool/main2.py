@@ -333,7 +333,7 @@ class MainWindow(CustomTitleBarWindowMixin, QMainWindow):
         self.pluginsSelector.activated.connect(self.onPluginSelectorChanged)
 
         # title bar
-        title = parameters.appName+" v"+version.__version__
+        title = parameters.appTitle+" v"+version.__version__
         iconPath = self.DataPath+"/"+parameters.appIcon
         log.i("icon path: " + iconPath)
         self.titleBar = TitleBar(self, icon=iconPath, title=title, brothers=[], widgets=[[self.skinButton, self.languageCombobox, self.aboutButton], []])
