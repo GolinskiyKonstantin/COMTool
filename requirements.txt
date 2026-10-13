@@ -8,3 +8,4 @@ pyte
 pyperclip
 coloredlogs
 pyqtgraph
+bleak>=0.21

@@ -44,6 +44,7 @@ A cross platform serial debug tools written by python
     - [x] rts & dtr control by hand
   - [x] TCP/UDP support, include client and server mode
   - [x] SSH client support
+  - [x] Bluetooth LE support (BLE UART modules like CH9143 / HM-10 / Nordic UART act as a virtual serial port)
 - [x] plugin support(Create plugin see [docs/plugins.md](./docs/plugins.md)), built-in plugin:
   - [x] dbg plugin, support basic send receive debug operation
     - [x] basic send/receive data (ascii and hex)

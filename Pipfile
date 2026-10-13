@@ -6,6 +6,7 @@ name = "pypi"
 [packages]
 pyserial = ">=3.5"
 requests = ">=2.25.1"
+bleak = ">=0.21"
 PyQt5 = ">=5.15.6"
 Babel = ">=2.9.1"
 QtAwesome = "*"

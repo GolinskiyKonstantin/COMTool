@@ -18,7 +18,7 @@ if platform.python_version_tuple()[0] != "3":
 if "Linux" in systemPlatform and "arm" in systemPlatform :
     print("\n\nplatform is arm linux: It's recommended to install some packages by `sudo apt install`, for example: `sudo apt install python3-pyqt5 python3-numpy")
     print("And if some package download or install failed, you can download the wheel file and install by `pip install ****.whl` mannually first\n\n")
-    ret = os.system("sudo pip3 install --upgrade pyserial requests Babel qtawesome paramiko pyte pyperclip coloredlogs pyqtgraph")
+    ret = os.system("sudo pip3 install --upgrade pyserial requests Babel qtawesome paramiko pyte pyperclip coloredlogs pyqtgraph bleak")
     if ret != 0:
         raise Exception("install packages failed")
     installRequires = []
@@ -32,7 +32,8 @@ else:
                       'pyte',
                       'pyperclip',
                       'coloredlogs',
-                      'pyqtgraph'
+                      'pyqtgraph',
+                      'bleak'
                       ]
 
 setup(
