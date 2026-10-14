@@ -70,6 +70,14 @@ A cross platform serial debug tools written by python
     - [x] display line chart in realtime, support customize protocol header(support escape characters)
     - [x] customable button to send data, support shortcut key
 
+## Bluetooth LE fork (COMTool-BLE)
+
+This fork adds a **Bluetooth LE** connection type: BLE UART modules (CH9143, HM-10, Nordic UART, ...) work like a virtual serial port inside COMTool.
+
+* **Windows, no install**: download the repository as ZIP, unpack it, run `COMTool.bat`. On first start it installs Python (if missing) and all libraries, then creates a desktop shortcut `COMTool-BLE`. `Debug.bat` runs the app with a console and Qt diagnostics.
+* **iPhone / any browser with Web Bluetooth**: a single-page BLE terminal is in [`docs/index.html`](./docs/index.html). Enable *Settings -> Pages -> Branch master, folder /docs* and open `https://golinskiykonstantin.github.io/COMTool/` in Chrome/Edge (desktop) or the Bluefy browser (iPhone). It needs `https://`.
+* Needs the `bleak` package for the desktop app (`pip install bleak`, already in `requirements.txt`).
+
 ## Installation
 
 There are two ways to install COMTool:

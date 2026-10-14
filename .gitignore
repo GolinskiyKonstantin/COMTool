@@ -24,3 +24,5 @@ comtool.*.json
 *.log
 config.*.json
 comtool_*_v*.*
+
+.venv/

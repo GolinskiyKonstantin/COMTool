@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0b0c">
+<meta name="color-scheme" content="dark">
+<title>COMTool-BLE Web</title>
+<style>
+  /* Layout: one column, log fills the screen, send bar and a horizontal row of labelled dropdowns pinned to the bottom. Single black/gray look. */
+  :root {
+    --bg: #0b0b0c;
+    --surface: #151517;
+    --surface2: #1e1e21;
+    --line: #2d2d31;
+    --fg: #e4e4e7;
+    --muted: #8b8b93;
+    --btn: #e4e4e7;
+    --btn-fg: #0b0b0c;
+    --ok: #4cc38a;
+    --rx: #cfcfd6;
+    --tx: #e0907f;
+    --warn: #d9b44a;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Courier New", monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.4 var(--font); -webkit-text-size-adjust: 100%;
+    padding: env(safe-area-inset-top, 0px) max(12px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(12px, env(safe-area-inset-left, 0px));
+  }
+  .app { display: flex; flex-direction: column; height: 100%; width: 100%; max-width: 1100px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 10px; padding-block: 10px 6px; }
+  h1 { font-size: 17px; margin: 0; flex: 1; min-width: 0; letter-spacing: .2px; white-space: nowrap; }
+  h1 span { color: var(--muted); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #55555c; flex: none; }
+  .dot.on { background: var(--ok); }
+  .dot.busy { background: var(--warn); }
+  #state { font-size: 13px; color: var(--muted); max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  button, select, input[type=text], input[type=number] {
+    font: inherit; color: var(--fg); background: var(--surface2); border: 1px solid var(--line);
+    border-radius: 6px; padding: 8px 10px; min-height: 38px;
+  }
+  select { padding-right: 4px; }
+  button { cursor: pointer; }
+  button:hover:not(:disabled) { border-color: #4a4a50; }
+  button.primary { background: var(--btn); color: var(--btn-fg); border-color: var(--btn); font-weight: 600; }
+  button:disabled { opacity: .45; cursor: default; }
+  button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid #8b8b93; outline-offset: 1px; }
+  #notice { background: var(--surface); border: 1px solid var(--warn); border-radius: 6px; padding: 10px 12px; margin-block: 6px; font-size: 13px; }
+  #info { font: 12px var(--mono); color: var(--muted); margin: 2px 0 4px; overflow-wrap: anywhere; white-space: pre-line; }
+  #info:empty { display: none; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-block: 4px; }
+  .bar .grow { flex: 1; white-space: nowrap; }
+
+  #log {
+    flex: 1; min-height: 120px; overflow-y: auto; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 6px; padding: 8px 10px; font: 13px/1.45 var(--mono); -webkit-overflow-scrolling: touch; margin-block: 6px;
+  }
+  #log.term { background: #000; }
+  .seg { margin: 0 0 5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .seg time { color: var(--muted); margin-right: 6px; font-size: 11px; }
+  .seg b { margin-right: 6px; }
+  .seg.rx b { color: var(--rx); }
+  .seg.tx b { color: var(--tx); }
+  .seg.tx .body { color: var(--tx); }
+  .seg.sys { color: var(--muted); font-style: italic; }
+  .seg.err { color: var(--tx); }
+  .empty { color: var(--muted); }
+  .hexrow { display: grid; grid-template-columns: max-content 1fr; column-gap: 14px; white-space: pre; }
+  .hexrow .hx { color: var(--fg); }
+  .hexrow .tt { color: var(--muted); }
+  .seg.tx .hexrow .hx, .seg.tx .hexrow .tt { color: var(--tx); }
+  .hexhead { margin: 2px 0 1px; }
+  .tl { white-space: pre-wrap; overflow-wrap: anywhere; min-height: 1.45em; color: #d4d4d8; }
+
+  #sendForm { display: flex; gap: 8px; padding-block: 2px 8px; }
+  #sendForm input { flex: 1; min-width: 0; font-family: var(--mono); }
+
+  /* settings: label above, dropdown below, laid out in one horizontal row */
+  .opts { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
+  .opt { display: flex; flex-direction: column; gap: 3px; flex: 1 0 auto; min-width: 104px; }
+  .opt > span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+  .opt select { width: 100%; }
+  details { margin-bottom: 10px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 13px; padding-block: 4px; }
+  .conn { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; padding-top: 6px; }
+  .conn label { display: grid; gap: 3px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .conn input { width: 100%; font-family: var(--mono); font-size: 14px; text-transform: none; letter-spacing: 0; }
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <span class="dot" id="dot"></span>
+  <h1>COMTool<span>-BLE</span> Web</h1>
+  <span id="state">Отключено</span>
+</header>
+
+<div id="notice" hidden></div>
+
+<div class="bar">
+  <button id="connect" class="primary grow">Найти и подключить</button>
+  <button id="disconnect" disabled>Отключить</button>
+  <button id="clear" type="button">Очистить</button>
+  <button id="copy" type="button">Копировать</button>
+</div>
+<div id="info"></div>
+
+<div id="log" aria-live="polite"></div>
+
+<form id="sendForm" autocomplete="off">
+  <input id="msg" type="text" placeholder="Данные для отправки" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send" aria-label="Данные для отправки">
+  <button class="primary" id="send" disabled>Отправить</button>
+</form>
+
+<div class="opts">
+  <label class="opt"><span>Приём</span>
+    <select id="view">
+      <option value="text">Текст</option>
+      <option value="hex">HEX</option>
+      <option value="both">HEX + Текст</option>
+      <option value="term">Терминал</option>
+    </select></label>
+  <label class="opt"><span>Отправка</span>
+    <select id="sendMode">
+      <option value="text">Текст</option>
+      <option value="hex">HEX</option>
+    </select></label>
+  <label class="opt"><span>Конец строки</span>
+    <select id="eol">
+      <option value="">Нет</option>
+      <option value="\n">LF  \n</option>
+      <option value="\r\n">CRLF  \r\n</option>
+      <option value="\r">CR  \r</option>
+    </select></label>
+  <label class="opt"><span>Эхо</span>
+    <select id="echo"><option value="1">Вкл</option><option value="0">Выкл</option></select></label>
+  <label class="opt"><span>Время</span>
+    <select id="showTime"><option value="1">Вкл</option><option value="0">Выкл</option></select></label>
+  <label class="opt"><span>Метки RX/TX</span>
+    <select id="showDir"><option value="1">Вкл</option><option value="0">Выкл</option></select></label>
+  <label class="opt"><span>Запись с ответом</span>
+    <select id="writeResp"><option value="0">Выкл</option><option value="1">Вкл</option></select></label>
+  <label class="opt"><span>Автопереподкл.</span>
+    <select id="reconnect"><option value="0">Выкл</option><option value="1">Вкл</option></select></label>
+</div>
+
+<details>
+  <summary>Подключение: UUID и размер пакета</summary>
+  <div class="conn">
+    <label>Service UUID
+      <input id="cfgService" type="text" placeholder="авто, например FFE0" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+    <label>RX (notify)
+      <input id="cfgRx" type="text" placeholder="авто, например FFE1" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+    <label>TX (write)
+      <input id="cfgTx" type="text" placeholder="авто, например FFE1" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+    <label>Пакет при отправке, байт
+      <input id="cfgChunk" type="number" min="1" max="512" value="20" inputmode="numeric"></label>
+  </div>
+</details>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const u16 = n => `0000${n.toString(16).padStart(4, '0')}-0000-1000-8000-00805f9b34fb`;
+
+  // [service, rx (notify from module), tx (write to module)]
+  const PROFILES = [
+    ['6e400001-b5a3-f393-e0a9-e50e24dcca9e', '6e400003-b5a3-f393-e0a9-e50e24dcca9e', '6e400002-b5a3-f393-e0a9-e50e24dcca9e'], // Nordic UART
+    [u16(0xFFE0), u16(0xFFE1), u16(0xFFE1)],                                  // HM-10, JDY and clones
+    [u16(0xFFF0), u16(0xFFF1), u16(0xFFF2)],                                  // WCH CH914x (common layout)
+    [u16(0xFFF0), u16(0xFFF2), u16(0xFFF1)],
+    ['49535343-fe7d-4ae5-8fa9-9fafd205e455', '49535343-1e4d-4bd9-ba61-23c647249616', '49535343-8841-43f4-a8d4-ecbe34729bb3'], // ISSC
+  ];
+  const GENERIC = ['00001800', '00001801', '0000180a', '0000180f'];
+
+  const state = { device: null, server: null, rx: null, tx: null, status: 'off', userClosed: false, segs: [] };
+
+  // ---------- settings (kept per browser) ----------
+  const FIELDS = ['cfgService', 'cfgRx', 'cfgTx', 'cfgChunk', 'view', 'sendMode', 'eol', 'echo', 'showTime', 'showDir', 'writeResp', 'reconnect'];
+  function loadSettings() {
+    try {
+      const s = JSON.parse(localStorage.getItem('comtool-ble-web') || '{}');
+      for (const id of FIELDS) {
+        if (!(id in s)) continue;
+        const el = $(id);
+        el.value = s[id];
+        if (el.value !== String(s[id])) el.selectedIndex = 0;
+      }
+    } catch (e) { /* storage unavailable */ }
+  }
+  function saveSettings() {
+    try {
+      const s = {};
+      for (const id of FIELDS) s[id] = $(id).value;
+      localStorage.setItem('comtool-ble-web', JSON.stringify(s));
+    } catch (e) { /* ignore */ }
+  }
+
+  // ---------- helpers ----------
+  function normUuid(v) {
+    v = (v || '').trim().toLowerCase();
+    if (!v) return '';
+    if (v.startsWith('0x')) v = v.slice(2);
+    if (/^[0-9a-f]{4}$/.test(v)) return u16(parseInt(v, 16));
+    if (/^[0-9a-f]{8}$/.test(v)) return `${v}-0000-1000-8000-00805f9b34fb`;
+    return v;
+  }
+  const canNotify = c => c.properties.notify || c.properties.indicate;
+  const canWrite = c => c.properties.write || c.properties.writeWithoutResponse;
+  const hex = b => Array.from(b, x => x.toString(16).padStart(2, '0')).join(' ').toUpperCase();
+  const stamp = t => new Date(t).toTimeString().slice(0, 8);
+  const on = id => $(id).value === '1';
+
+  function setStatus(s, text) {
+    state.status = s;
+    $('dot').className = 'dot' + (s === 'on' ? ' on' : s === 'busy' ? ' busy' : '');
+    $('state').textContent = text;
+    $('connect').disabled = s !== 'off';
+    $('disconnect').disabled = s === 'off';
+    $('send').disabled = s !== 'on';
+  }
+
+  // ---------- terminal emulator (colors, \r \n \b, erase line/screen, cursor moves) ----------
+  const DEF = Object.freeze({ fg: null, bg: null, b: 0, d: 0, i: 0, u: 0, r: 0 });
+  const BASE16 = ['#5c5c66', '#e5534b', '#4cc38a', '#d9b44a', '#5b9cf5', '#c678dd', '#4fc1d0', '#d4d4d8',
+                  '#8b8b93', '#ff7b72', '#6ee7a8', '#f0d060', '#79b8ff', '#d8a0f0', '#7fdbe8', '#ffffff'];
+  function color256(n) {
+    if (n < 16) return BASE16[n];
+    if (n < 232) {
+      const l = [0, 95, 135, 175, 215, 255], k = n - 16;
+      return `rgb(${l[Math.floor(k / 36)]},${l[Math.floor(k / 6) % 6]},${l[k % 6]})`;
+    }
+    const g = 8 + 10 * (n - 232);
+    return `rgb(${g},${g},${g})`;
+  }
+  const MAX_LINES = 2000;
+  const term = {
+    lines: [[]], row: 0, col: 0, style: DEF, mode: 'n', buf: '', dec: new TextDecoder('utf-8'),
+    reset() { this.lines = [[]]; this.row = 0; this.col = 0; this.style = DEF; this.mode = 'n'; this.buf = ''; this.dec = new TextDecoder('utf-8'); },
+    feed(bytes) { for (const c of this.dec.decode(bytes, { stream: true })) this.ch(c); },
+    newline() {
+      this.row++; this.col = 0;
+      if (this.row >= this.lines.length) this.lines.push([]);
+      if (this.lines.length > MAX_LINES) { this.lines.shift(); this.row--; }
+    },
+    ch(c) {
+      switch (this.mode) {
+        case 'esc':
+          if (c === '[') { this.mode = 'csi'; this.buf = ''; } else if (c === ']') { this.mode = 'osc'; } else this.mode = 'n';
+          return;
+        case 'csi': {
+          const code = c.charCodeAt(0);
+          if (code >= 0x40 && code <= 0x7e) { this.mode = 'n'; this.csi(this.buf, c); } else this.buf += c;
+          return;
+        }
+        case 'osc': if (c === '\x07') this.mode = 'n'; else if (c === '\x1b') this.mode = 'oscesc'; return;
+        case 'oscesc': this.mode = 'n'; return;
+      }
+      switch (c) {
+        case '\x1b': this.mode = 'esc'; return;
+        case '\n': this.newline(); return;
+        case '\r': this.col = 0; return;
+        case '\b': this.col = Math.max(0, this.col - 1); return;
+        case '\t': this.col = (Math.floor(this.col / 8) + 1) * 8; return;
+      }
+      if (c < ' ' || c === '\x7f') return;
+      const line = this.lines[this.row];
+      while (line.length < this.col) line.push({ ch: ' ', st: DEF });
+      line[this.col] = { ch: c, st: this.style };
+      this.col++;
+    },
+    csi(buf, fin) {
+      if (/^[?>=!]/.test(buf)) return;
+      const p = buf.split(';').map(x => (x === '' ? NaN : parseInt(x, 10)));
+      const n = Number.isNaN(p[0]) || p[0] === undefined ? null : p[0];
+      const line = this.lines[this.row];
+      switch (fin) {
+        case 'm': this.sgr(p); break;
+        case 'K':
+          if (!n) line.length = Math.min(line.length, this.col);
+          else if (n === 1) for (let i = 0; i < Math.min(this.col, line.length); i++) line[i] = { ch: ' ', st: DEF };
+          else line.length = 0;
+          break;
+        case 'J':
+          if (n === 2 || n === 3) { this.lines = [[]]; this.row = 0; this.col = 0; }
+          else if (!n) { line.length = Math.min(line.length, this.col); this.lines.length = this.row + 1; }
+          break;
+        case 'C': this.col += n || 1; break;
+        case 'D': this.col = Math.max(0, this.col - (n || 1)); break;
+        case 'G': this.col = Math.max(0, (n || 1) - 1); break;
+        case 'A': this.row = Math.max(0, this.row - (n || 1)); break;
+        case 'B': for (let i = 0; i < (n || 1); i++) { this.row++; if (this.row >= this.lines.length) this.lines.push([]); } break;
+        case 'H': case 'f':
+          this.col = Math.max(0, ((p[1] || 1)) - 1);
+          if (this.lines.length === 1 && !this.lines[0].length) this.row = 0;
+          break;
+      }
+    },
+    sgr(p) {
+      let s = { ...this.style };
+      if (!p.length) p = [0];
+      for (let i = 0; i < p.length; i++) {
+        const c = Number.isNaN(p[i]) ? 0 : p[i];
+        if (c === 0) s = { ...DEF };
+        else if (c === 1) s.b = 1; else if (c === 2) s.d = 1; else if (c === 3) s.i = 1; else if (c === 4) s.u = 1; else if (c === 7) s.r = 1;
+        else if (c === 22) { s.b = 0; s.d = 0; } else if (c === 23) s.i = 0; else if (c === 24) s.u = 0; else if (c === 27) s.r = 0;
+        else if (c >= 30 && c <= 37) s.fg = BASE16[c - 30];
+        else if (c >= 90 && c <= 97) s.fg = BASE16[c - 90 + 8];
+        else if (c >= 40 && c <= 47) s.bg = BASE16[c - 40];
+        else if (c >= 100 && c <= 107) s.bg = BASE16[c - 100 + 8];
+        else if (c === 39) s.fg = null; else if (c === 49) s.bg = null;
+        else if (c === 38 || c === 48) {
+          let col = null;
+          if (p[i + 1] === 5) { col = color256(p[i + 2] | 0); i += 2; }
+          else if (p[i + 1] === 2) { col = `rgb(${p[i + 2] | 0},${p[i + 3] | 0},${p[i + 4] | 0})`; i += 4; }
+          if (col) { if (c === 38) s.fg = col; else s.bg = col; }
+        }
+      }
+      this.style = Object.freeze(s);
+    },
+    text() { return this.lines.map(l => l.map(c => c.ch).join('')).join('\n'); },
+  };
+  const enc = new TextEncoder();
+  function termNote(text) {
+    const pre = term.col > 0 ? '\r\n' : '';
+    term.feed(enc.encode(`${pre}\x1b[90m# ${text}\x1b[0m\r\n`));
+  }
+
+  // ---------- log ----------
+  const LOG_MAX = 400;
+  function addSeg(kind, bytes, text) {
+    const now = Date.now();
+    const last = state.segs[state.segs.length - 1];
+    if (kind === 'rx' && last && last.kind === 'rx' && now - last.t < 300) {
+      last.bytes = Uint8Array.from([...last.bytes, ...bytes]);
+      last.t = now;
+    } else {
+      state.segs.push({ kind, bytes, text, t: now, t0: now });
+      if (state.segs.length > LOG_MAX) state.segs.shift();
+    }
+    if (kind === 'rx') term.feed(bytes);
+    else if (kind === 'tx' && on('echo')) term.feed(bytes);
+    scheduleRender();
+  }
+  const note = (kind, text) => { state.segs.push({ kind, text, t0: Date.now(), t: Date.now() }); termNote(text); scheduleRender(); };
+  const sys = t => note('sys', t);
+  const err = t => note('err', t);
+
+  let renderQueued = false;
+  function scheduleRender() {
+    if (renderQueued) return;
+    renderQueued = true;
+    requestAnimationFrame(() => { renderQueued = false; renderLog(); });
+  }
+
+  let charW = 8;
+  function measure() {
+    const c = document.createElement('canvas').getContext('2d');
+    c.font = '13px ' + getComputedStyle(document.documentElement).getPropertyValue('--mono');
+    charW = c.measureText('0').width || 8;
+  }
+  function bytesPerRow() {
+    const avail = $('log').clientWidth - 22 - 14;
+    const n = Math.floor(avail / (charW * 4));
+    return [32, 16, 8, 4].find(x => x <= n) || 4;
+  }
+  const printable = b => (b >= 0x20 && b < 0x7f ? String.fromCharCode(b) : '·');
+
+  function prefix(s, parent) {
+    if (on('showTime')) { const t = document.createElement('time'); t.textContent = stamp(s.t0); parent.append(t); }
+    if (on('showDir')) { const b = document.createElement('b'); b.textContent = s.kind === 'rx' ? 'RX' : 'TX'; parent.append(b); }
+  }
+
+  function renderLog() {
+    const log = $('log');
+    const atEnd = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
+    const mode = $('view').value;
+    log.classList.toggle('term', mode === 'term');
+    log.textContent = '';
+    const frag = document.createDocumentFragment();
+    if (mode === 'term') renderTerm(frag);
+    else renderSegs(frag, mode);
+    log.append(frag);
+    if (atEnd) log.scrollTop = log.scrollHeight;
+  }
+
+  function renderTerm(frag) {
+    for (const line of term.lines) {
+      const div = document.createElement('div'); div.className = 'tl';
+      let cur = null, txt = '';
+      const flush = () => {
+        if (cur === null) return;
+        const sp = document.createElement('span'); sp.textContent = txt;
+        if (cur !== DEF) {
+          const fg = cur.r ? (cur.bg || '#000') : cur.fg, bg = cur.r ? (cur.fg || '#d4d4d8') : cur.bg;
+          if (fg) sp.style.color = fg;
+          if (bg) sp.style.backgroundColor = bg;
+          if (cur.b) sp.style.fontWeight = '700';
+          if (cur.i) sp.style.fontStyle = 'italic';
+          if (cur.u) sp.style.textDecoration = 'underline';
+          if (cur.d) sp.style.opacity = '.6';
+        }
+        div.append(sp);
+      };
+      for (const cell of line) {
+        if (cell.st !== cur) { flush(); cur = cell.st; txt = ''; }
+        txt += cell.ch;
+      }
+      flush();
+      if (!line.length) div.textContent = '​';
+      frag.append(div);
+    }
+  }
+
+  function renderSegs(frag, mode) {
+    const echo = on('echo'), plain = !on('showTime') && !on('showDir');
+    const dec = new TextDecoder('utf-8');
+    const visible = state.segs.filter(s => s.kind !== 'tx' || echo);
+    if (!visible.length) {
+      const p = document.createElement('div'); p.className = 'empty';
+      p.textContent = 'Здесь появятся принятые и отправленные данные.';
+      frag.append(p); return;
+    }
+    const bpr = mode === 'both' ? bytesPerRow() : 0;
+    let prev = null, prevText = '';
+    for (const s of visible) {
+      if (s.kind === 'sys' || s.kind === 'err') {
+        const d = document.createElement('div'); d.className = 'seg ' + s.kind;
+        d.textContent = (on('showTime') ? stamp(s.t0) + '  ' : '') + s.text;
+        frag.append(d); prev = null; continue;
+      }
+      if (mode === 'both') {
+        const d = document.createElement('div'); d.className = 'seg ' + s.kind;
+        if (!plain) { const h = document.createElement('div'); h.className = 'hexhead'; prefix(s, h); d.append(h); }
+        for (let i = 0; i < s.bytes.length; i += bpr) {
+          const row = s.bytes.slice(i, i + bpr);
+          const r = document.createElement('div'); r.className = 'hexrow';
+          const a = document.createElement('span'); a.className = 'hx';
+          a.textContent = hex(row).padEnd(bpr * 3 - 1, ' ');
+          const b = document.createElement('span'); b.className = 'tt';
+          b.textContent = Array.from(row, printable).join('');
+          r.append(a, b); d.append(r);
+        }
+        frag.append(d); continue;
+      }
+      const body = mode === 'hex' ? hex(s.bytes) : (s.kind === 'tx' && s.text !== undefined ? s.text : dec.decode(s.bytes));
+      if (plain && s.kind === 'rx' && prev && prev.kind === 'rx') {          // clean stream: join chunks
+        prevText += body; prev.el.textContent = prevText; continue;
+      }
+      const d = document.createElement('div'); d.className = 'seg ' + s.kind;
+      prefix(s, d);
+      const sp = document.createElement('span'); sp.className = 'body'; sp.textContent = body; d.append(sp);
+      frag.append(d);
+      prev = { kind: s.kind, el: sp }; prevText = body;
+    }
+  }
+
+  // ---------- characteristic selection ----------
+  async function pickCharacteristics(server) {
+    const services = await server.getPrimaryServices();
+    const map = new Map();
+    const bySvc = [];
+    for (const s of services) {
+      let chars = [];
+      try { chars = await s.getCharacteristics(); } catch (e) { continue; }
+      bySvc.push({ uuid: s.uuid, chars });
+      for (const c of chars) map.set(c.uuid, c);
+    }
+    const cs = normUuid($('cfgService').value), cr = normUuid($('cfgRx').value), ct = normUuid($('cfgTx').value);
+    if (cr || ct) {
+      let rx = cr ? map.get(cr) : null, tx = ct ? map.get(ct) : null;
+      if (cr && !rx) throw new Error('RX характеристика не найдена: ' + cr);
+      if (ct && !tx) throw new Error('TX характеристика не найдена: ' + ct);
+      if (!rx && tx && canNotify(tx)) rx = tx;
+      if (!tx && rx && canWrite(rx)) tx = rx;
+      if (!rx || !tx) throw new Error('Нужны обе характеристики: RX и TX');
+      return { rx, tx };
+    }
+    for (const [svc, r, t] of PROFILES) {
+      if (cs && svc !== cs) continue;
+      const rx = map.get(r), tx = map.get(t);
+      if (rx && tx && canNotify(rx) && canWrite(tx)) return { rx, tx };
+    }
+    for (const s of bySvc) {
+      if (cs && s.uuid !== cs) continue;
+      if (GENERIC.some(g => s.uuid.startsWith(g))) continue;
+      const rx = s.chars.find(canNotify);
+      const tx = s.chars.find(c => c.properties.writeWithoutResponse) || s.chars.find(canWrite);
+      if (rx && tx) return { rx, tx };
+    }
+    throw new Error('Не найден UART-сервис. Укажите Service / RX / TX UUID в настройках подключения.');
+  }
+
+  // ---------- connect / disconnect ----------
+  function optionalServices() {
+    const set = new Set(PROFILES.map(p => p[0]));
+    const cs = normUuid($('cfgService').value);
+    if (cs) set.add(cs);
+    return [...set];
+  }
+
+  async function connect() {
+    saveSettings();
+    setStatus('busy', 'Поиск…');
+    state.userClosed = false;
+    try {
+      const dev = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: optionalServices() });
+      state.device = dev;
+      dev.removeEventListener('gattserverdisconnected', onDisconnected);
+      dev.addEventListener('gattserverdisconnected', onDisconnected);
+      await openGatt();
+    } catch (e) {
+      if (e && e.name === 'NotFoundError') { setStatus('off', 'Отключено'); return; } // picker closed
+      fail(e);
+    }
+  }
+
+  async function openGatt() {
+    setStatus('busy', 'Подключение…');
+    const dev = state.device;
+    const server = await dev.gatt.connect();
+    state.server = server;
+    const { rx, tx } = await pickCharacteristics(server);
+    rx.removeEventListener('characteristicvaluechanged', onNotify);
+    rx.addEventListener('characteristicvaluechanged', onNotify);
+    await rx.startNotifications();
+    state.rx = rx; state.tx = tx;
+    setStatus('on', 'Подключено: ' + (dev.name || dev.id));
+    $('info').textContent = `RX ${rx.uuid}\nTX ${tx.uuid}`;
+    sys('Подключено к ' + (dev.name || dev.id));
+  }
+
+  function fail(e) {
+    try { state.device && state.device.gatt && state.device.gatt.connected && state.device.gatt.disconnect(); } catch (_) {}
+    state.rx = state.tx = null;
+    setStatus('off', 'Отключено');
+    err('Ошибка подключения: ' + (e && e.message ? e.message : e));
+  }
+
+  function onNotify(ev) {
+    const v = ev.target.value;
+    addSeg('rx', new Uint8Array(v.buffer, v.byteOffset, v.byteLength).slice());
+  }
+
+  async function onDisconnected() {
+    state.rx = state.tx = null;
+    if (state.userClosed) { setStatus('off', 'Отключено'); sys('Отключено'); return; }
+    if (on('reconnect') && state.device) {
+      sys('Связь потеряна, переподключаюсь…');
+      for (let i = 0; i < 30 && !state.userClosed; i++) {
+        setStatus('busy', 'Переподключение…');
+        try { await openGatt(); return; } catch (e) { await new Promise(r => setTimeout(r, 1500)); }
+      }
+      if (!state.userClosed) { setStatus('off', 'Отключено'); err('Не удалось переподключиться'); }
+      return;
+    }
+    setStatus('off', 'Отключено');
+    err('Связь потеряна');
+  }
+
+  function disconnect() {
+    state.userClosed = true;
+    try { if (state.device && state.device.gatt.connected) state.device.gatt.disconnect(); } catch (_) {}
+    setStatus('off', 'Отключено');
+    $('info').textContent = '';
+  }
+
+  // ---------- send ----------
+  function buildPayload() {
+    const raw = $('msg').value;
+    const eolRaw = $('eol').value;
+    const eol = eolRaw.replace('\\r', '\r').replace('\\n', '\n');
+    if ($('sendMode').value === 'hex') {
+      const clean = raw.replace(/0x/gi, '').replace(/[^0-9a-f]/gi, '');
+      if (!clean.length || clean.length % 2) throw new Error('HEX: нужно чётное число цифр 0-9 A-F');
+      const out = new Uint8Array(clean.length / 2);
+      for (let i = 0; i < out.length; i++) out[i] = parseInt(clean.substr(i * 2, 2), 16);
+      return { bytes: Uint8Array.from([...out, ...enc.encode(eol)]), text: undefined };
+    }
+    return { bytes: enc.encode(raw + eol), text: raw + eolRaw.replace('\\r', '\\r').replace('\\n', '\\n') };
+  }
+
+  let sending = Promise.resolve();
+  function send() {
+    if (state.status !== 'on' || !state.tx) return;
+    let p;
+    try { p = buildPayload(); } catch (e) { err(e.message); return; }
+    if (!p.bytes.length) return;
+    saveSettings();
+    const tx = state.tx;
+    const size = Math.max(1, Math.min(512, parseInt($('cfgChunk').value, 10) || 20));
+    const withResp = on('writeResp') || !tx.properties.writeWithoutResponse;
+    addSeg('tx', p.bytes, p.text);
+    $('msg').value = '';
+    sending = sending.then(async () => {
+      for (let i = 0; i < p.bytes.length; i += size) {
+        const chunk = p.bytes.slice(i, i + size);
+        if (withResp && tx.writeValueWithResponse) await tx.writeValueWithResponse(chunk);
+        else if (!withResp && tx.writeValueWithoutResponse) await tx.writeValueWithoutResponse(chunk);
+        else await tx.writeValue(chunk);
+      }
+    }).catch(e => err('Ошибка отправки: ' + (e && e.message ? e.message : e)));
+  }
+
+  // ---------- copy ----------
+  function logAsText() {
+    const mode = $('view').value;
+    if (mode === 'term') return term.text();
+    const dec = new TextDecoder();
+    const echo = on('echo');
+    return state.segs.filter(s => s.kind !== 'tx' || echo).map(s => {
+      if (s.kind === 'sys' || s.kind === 'err') return `# ${s.text}`;
+      const head = [on('showTime') ? stamp(s.t0) : '', on('showDir') ? s.kind.toUpperCase() : ''].filter(Boolean).join(' ');
+      const body = mode === 'text' ? dec.decode(s.bytes) : hex(s.bytes);
+      return (head ? head + ' ' : '') + body;
+    }).join('\n');
+  }
+
+  // ---------- init ----------
+  function init() {
+    loadSettings();
+    measure();
+    renderLog();
+    setStatus('off', 'Отключено');
+    if (!navigator.bluetooth) {
+      const n = $('notice');
+      n.hidden = false;
+      n.textContent = 'Этот браузер не поддерживает Web Bluetooth. Используйте Chrome или Edge на компьютере, либо Bluefy на iPhone. Страница должна быть открыта по https:// или localhost.';
+      $('connect').disabled = true;
+    }
+    $('connect').addEventListener('click', connect);
+    $('disconnect').addEventListener('click', disconnect);
+    $('sendForm').addEventListener('submit', e => { e.preventDefault(); send(); });
+    for (const id of FIELDS) $(id).addEventListener('change', () => { saveSettings(); renderLog(); });
+    $('clear').addEventListener('click', () => { state.segs = []; term.reset(); renderLog(); });
+    $('copy').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(logAsText()); sys('Скопировано в буфер'); }
+      catch (e) { err('Не удалось скопировать'); }
+    });
+    window.addEventListener('resize', scheduleRender);
+    window.__ble = { state, term };
+  }
+  init();
+})();
+</script>
+</body>
+</html>
